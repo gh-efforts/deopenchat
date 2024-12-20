@@ -1,0 +1,20 @@
+[package]
+name = "deopenchat-bridge"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+common = { path = "../common" }
+async-openai = {version =  "0.26", default-features = false}
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7.9" }
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+anyhow = "1"
+ed25519-dalek = "2"
+serde_json = "1"
+alloy = {version = "0.8", features = ["contract", "signer-local"]}
+prettytable-rs = "0.10"
+futures-util = "0.3"
+log = "0.4.22"
+log4rs = "1"

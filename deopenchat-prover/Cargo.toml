@@ -1,0 +1,11 @@
+[package]
+name = "deopenchat-prover"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+deopenchat-zkcircuit = { path = "../deopenchat-zkcircuit" }
+common = { path = "../common" }
+anyhow = "1"
+#risc0-zkvm = { version = "1.2.0", default-features = false, features = ["cuda"] }
+risc0-zkvm = { version = "1.2.0", default-features = false, features = ["client"] }
