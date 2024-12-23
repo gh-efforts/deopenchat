@@ -155,11 +155,13 @@ async fn daemon(
         .join("/v1/completions/seq/")?
         .join(&hex::encode(client_pk.to_bytes()))?;
 
-    let seq: String = client.get(query_seq)
+    let seq_bytes = client.get(query_seq)
         .send()
         .await?
-        .json()
+        .bytes()
         .await?;
+
+    let seq = String::from_utf8(seq_bytes.to_vec())?;
 
     let seq = u32::from_str(&seq)?;
 

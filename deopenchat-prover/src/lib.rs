@@ -17,3 +17,15 @@ pub fn prove(input: Input) -> Result<ProveInfo> {
     prove_info.receipt.verify(GUEST_CODE_FOR_ZK_PROOF_ID)?;
     Ok(prove_info)
 }
+
+#[cfg(test)]
+mod tests {
+    use risc0_zkvm::sha::Digest;
+    use deopenchat_zkcircuit::GUEST_CODE_FOR_ZK_PROOF_ID;
+
+    #[test]
+    fn print_image_id() {
+        let image_id = Digest::from(GUEST_CODE_FOR_ZK_PROOF_ID);
+        println!("image id: {}", image_id);
+    }
+}
