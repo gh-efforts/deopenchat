@@ -65,7 +65,7 @@ contract Deopenchat {
         Provider[] memory ret = new Provider[](providers.length);
 
         for (uint32 i = 0; i < providers.length; i++) {
-            ret[i] = (providerMapping[providers[i]]);
+            ret[i] = providerMapping[providers[i]];
         }
 
         return ret;
@@ -82,8 +82,9 @@ contract Deopenchat {
         uint32 needCost = ktokens * costPerKt;
         require(needCost <= msg.value, "not enough amount!");
 
-        records[provider][clientPk].remainingTokens += ktokens * 1000;
         payable(address(this)).transfer(msg.value);
+        // todo payable(msg.sender).transfer()
+        records[provider][clientPk].remainingTokens += ktokens * 1000;
     }
 
     struct Claim {

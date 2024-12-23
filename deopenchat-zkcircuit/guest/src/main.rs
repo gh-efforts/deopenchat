@@ -1,10 +1,10 @@
 use ed25519_dalek::{ed25519, Verifier, VerifyingKey};
-use common::{Claim, Input, PUBLIC_KEY_SIZE};
+use common::{Claim, Input, CLAIM_SIZE};
 use risc0_zkvm::guest::env;
 
 fn main() {
     let input: Input = env::read();
-    let mut claims: Vec<u8> = Vec::with_capacity(input.rounds.len() * (PUBLIC_KEY_SIZE + 4 + 4 + 8));
+    let mut claims: Vec<u8> = Vec::with_capacity(input.rounds.len() * CLAIM_SIZE);
 
     for (client_pk, rounds) in &input.rounds {
         let mut curr_seq = rounds[0].request.msg.seq;
@@ -36,7 +36,7 @@ fn main() {
             tokens_consumed
         };
 
-        let claim_buf: [u8; 48] = claim.into();
+        let claim_buf: [u8; CLAIM_SIZE] = claim.into();
         claims.extend_from_slice(&claim_buf);
     }
 

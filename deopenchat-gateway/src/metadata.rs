@@ -4,7 +4,6 @@ use std::sync::Arc;
 use common::{CompletionsReq, CompletionsResp, ConfirmReq, PublicKey};
 use anyhow::{ensure, Result};
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum RoundState {
@@ -95,8 +94,8 @@ impl MetadataCache {
         let key_str = hex::encode(&key);
 
         let lock= {
-            let mut lg = self.locks.lock().unwrap();
-            lg.entry(key).or_insert_with(|| Arc::new(tokio::sync::RwLock::new(()))).clone()
+            let lg = self.locks.lock().unwrap();
+            lg.get(&key).ok_or_else(|| anyhow::anyhow!("Key not found"))?.clone()
         };
 
         let _guard = lock.write().await;
@@ -125,10 +124,9 @@ impl MetadataCache {
         let key = confirm.pk;
         let key_str = hex::encode(&key);
 
-        // todo
         let lock= {
-            let mut lg = self.locks.lock().unwrap();
-            lg.entry(key).or_insert_with(|| Arc::new(tokio::sync::RwLock::new(()))).clone()
+            let lg = self.locks.lock().unwrap();
+            lg.get(&key).ok_or_else(|| anyhow::anyhow!("Key not found"))?.clone()
         };
 
         let _guard = lock.write().await;
@@ -164,6 +162,8 @@ impl MetadataCache {
     }
 
     pub async fn load_status(&self, key: PublicKey) -> Result<Option<PeerStatus>> {
+        let key_str = hex::encode(&key);
+
         let lock = {
             let lg = self.locks.lock().unwrap();
             match lg.get(&key) {
@@ -172,7 +172,6 @@ impl MetadataCache {
             }
         };
 
-        let key_str = hex::encode(&key);
         let _guard = lock.read().await;
 
         let buf = cacache::read(&self.round_status_dir, &key_str).await?;
@@ -181,6 +180,7 @@ impl MetadataCache {
     }
 
     pub async fn load_all_history(&self) -> Result<HashMap<PublicKey, Vec<RoundData>>> {
+        // todo load old peers
         let keys = self.locks.lock().unwrap().clone();
         let mut out = HashMap::new();
 
@@ -193,7 +193,7 @@ impl MetadataCache {
 
             let mut rounds = Vec::new();
 
-            for seq in s.commit_seq + 1..s.seq {
+            for seq in s.commit_seq + 1..=s.seq {
                 let buf = cacache::read(&self.history_dir, &format!("{}-{}", key_str, seq)).await?;
                 let rd: RoundData = serde_json::from_slice(&buf)?;
                 rounds.push(rd);

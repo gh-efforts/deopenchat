@@ -1,7 +1,7 @@
 use alloy::hex::FromHex;
 use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, FixedBytes, U256};
-use alloy::providers::{Provider, ProviderBuilder};
+use alloy::providers::{ProviderBuilder};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::{hex, sol};
 use anyhow::{anyhow, Result};
@@ -12,10 +12,13 @@ use axum::response::Response;
 use axum::routing::get;
 use axum::{Json, Router};
 use clap::{Parser, Subcommand};
-use common::{CompletionsReq, CompletionsResp, Confirm, ConfirmMsg, ConfirmReq, PublicKey, Request, RequestMsg};
+use common::{CompletionsReq, CompletionsResp, Confirm, ConfirmMsg, ConfirmReq, Request, RequestMsg};
 use ed25519_dalek::{SecretKey, Signer, SigningKey};
 use futures_util::TryFutureExt;
 use log::{info, LevelFilter};
+use log4rs::append::console::ConsoleAppender;
+use log4rs::config::{Appender, Root};
+use log4rs::encode::pattern::PatternEncoder;
 use prettytable::{row, Table};
 use reqwest::Url;
 use std::future::IntoFuture;
@@ -23,9 +26,6 @@ use std::net::SocketAddr;
 use std::process::ExitCode;
 use std::str::FromStr;
 use std::sync::Arc;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::config::{Appender, Root};
-use log4rs::encode::pattern::PatternEncoder;
 use tokio::sync::mpsc;
 
 sol!{
@@ -44,9 +44,9 @@ async fn completions_handler(
     sk: SigningKey,
     mut task_recv: mpsc::Receiver<(async_openai::types::CreateCompletionRequest, tokio::sync::oneshot::Sender<async_openai::types::CreateCompletionResponse>)>
 ) -> Result<()> {
-    while let Some((req, tx)) = task_recv.recv().await {
-        let completions_url = endpoint.join("/v1/completions")?;
+    let completions_url = endpoint.join("/v1/completions")?;
 
+    while let Some((req, tx)) = task_recv.recv().await {
         let msg = RequestMsg {
             seq
         };
@@ -62,7 +62,7 @@ async fn completions_handler(
             }
         };
 
-        let resp = client.get(completions_url)
+        let resp = client.get(completions_url.clone())
             .json(&req)
             .send()
             .await?;
@@ -91,7 +91,7 @@ async fn completions_handler(
 
         let completions_confirm_url =  endpoint.join("/v1/completions/confirm")?;
 
-        client.get(completions_confirm_url)
+        client.post(completions_confirm_url)
             .json(&req)
             .send()
             .await?;
@@ -131,7 +131,7 @@ async fn completions(
 async fn daemon(
     bind_addr: SocketAddr,
     provider: Address,
-    deopenchat_address: Address,
+    deopenchat_contact_address: Address,
     client_sk_str: &str,
     chain_endpoint: Url
 ) -> Result<()> {
@@ -144,7 +144,7 @@ async fn daemon(
         .with_recommended_fillers()
         .on_http(chain_endpoint);
 
-    let provider_info = Deopenchat::new(deopenchat_address, &alloy_provider)
+    let provider_info = Deopenchat::new(deopenchat_contact_address, &alloy_provider)
         .getProvider(provider)
         .call()
         .await?
@@ -169,7 +169,7 @@ async fn daemon(
         tokio::spawn(completions_handler(
             client,
             provider_info.endpoint.parse()?,
-            seq,
+            seq + 1,
             client_sk,
             task_rx,
         )).await?
@@ -232,13 +232,13 @@ async fn fetch_tokens(
 
 async fn print_all_providers(
     chain_endpoint: Url,
-    deopenchat_address: Address
+    deopenchat_contact_address: Address
 ) -> Result<()> {
     let alloy_provider = ProviderBuilder::new()
         .with_recommended_fillers()
         .on_http(chain_endpoint);
 
-    let deopenchat = Deopenchat::new(deopenchat_address, alloy_provider);
+    let deopenchat = Deopenchat::new(deopenchat_contact_address, alloy_provider);
 
     let providers = deopenchat.getAllProviders()
         .call()

@@ -1,36 +1,34 @@
-use std::collections::HashMap;
-use std::future::{pending, IntoFuture};
-use std::net::SocketAddr;
-use std::path::Path;
-use std::process::ExitCode;
-use std::str::FromStr;
-use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicU64, Ordering};
-use alloy::network::{EthereumWallet, NetworkWallet};
+use crate::metadata::{MetadataCache, PeerStatus, RoundState};
+use alloy::network::EthereumWallet;
 use alloy::primitives::{Address, Bytes, FixedBytes};
 use alloy::providers::{Provider, ProviderBuilder, WalletProvider};
 use alloy::signers::local::PrivateKeySigner;
 use alloy::sol;
 use alloy::transports::http::reqwest::Url;
 use alloy::transports::Transport;
-use anyhow::{anyhow, ensure, Error, Result};
+use anyhow::{anyhow, ensure, Result};
 use async_openai::config::OpenAIConfig;
-use async_openai::types::{CreateCompletionResponse, Prompt};
 use axum::body::Body;
 use axum::extract::State;
 use axum::http::StatusCode;
-use axum::{Json, Router};
 use axum::response::Response;
 use axum::routing::{get, post};
+use axum::{Json, Router};
 use clap::{Parser, Subcommand};
+use common::{CompletionsReq, CompletionsResp, ConfirmReq, Input, PublicKey, Round, CLAIM_SIZE};
 use ed25519_dalek::{ed25519, Verifier, VerifyingKey};
 use futures_util::TryFutureExt;
+use log::{info, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use log::{info, LevelFilter};
-use common::{CompletionsReq, CompletionsResp, ConfirmReq, Input, PublicKey, Round, CLAIM_SIZE};
-use crate::metadata::{MetadataCache, PeerStatus, RoundState};
+use std::collections::HashMap;
+use std::future::IntoFuture;
+use std::net::SocketAddr;
+use std::process::ExitCode;
+use std::str::FromStr;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 
 mod metadata;
 
@@ -66,12 +64,13 @@ fn logger_init() -> anyhow::Result<()> {
     Ok(())
 }
 
-struct Context<P>{
+struct Context<P> {
     md_cache: MetadataCache,
     alloy_provider: P,
     provider_address: Address,
     deopenchat_contact_address: Address,
-    backend_client: async_openai::Client<OpenAIConfig>
+    backend_client: async_openai::Client<OpenAIConfig>,
+    accumulated_tokens: AtomicU64
 }
 
 async fn completions<T, P>(
@@ -141,6 +140,7 @@ async fn completions_confirm<T, P>(
         ensure!(req.confirm.msg.resp_tokens >= usage.completion_tokens);
 
         ctx.md_cache.confirm(&req).await?;
+        ctx.accumulated_tokens.fetch_add(req.confirm.msg.input_tokens as u64 + req.confirm.msg.resp_tokens as u64, Ordering::Relaxed);
         Ok(())
     };
 
@@ -186,8 +186,7 @@ async fn current_seq<T, P>(
             }
         };
 
-        ensure!(status.state == RoundState::Completed);
-        Ok(status.seq)
+        Ok::<_, anyhow::Error>(status.seq)
     };
 
     match fut.await {
@@ -205,7 +204,6 @@ async fn current_seq<T, P>(
 
 async fn commit_handler<T, P> (
     ctx: Arc<Context<P>>,
-    accumulated_tokens: Arc<AtomicU64>,
     commit_high_water_level: u64
 ) -> Result<()>
     where
@@ -217,7 +215,7 @@ async fn commit_handler<T, P> (
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
-        if accumulated_tokens.load(Ordering::Relaxed) < commit_high_water_level {
+        if ctx.accumulated_tokens.load(Ordering::Relaxed) < commit_high_water_level {
             continue;
         }
 
@@ -338,32 +336,30 @@ async fn daemon(
         .wallet(wallet)
         .on_http(chain_endpoint);
 
-    let provider_address = alloy_provider.default_signer_address();;
+    let provider_address = alloy_provider.default_signer_address();
 
-    let md_cache = MetadataCache::new(&std::env::current_dir()?);
+    let md_cache = MetadataCache::new(&std::env::current_dir()?.join("cache"));
 
     let ctx = Arc::new(Context {
         md_cache,
         alloy_provider,
         provider_address,
         deopenchat_contact_address,
-        backend_client: backend
+        backend_client: backend,
+        accumulated_tokens: AtomicU64::new(0)
     });
-
-    let accumulated_tokens = Arc::new(AtomicU64::new(0));
 
     let commit_handler_fut = async {
         tokio::spawn(commit_handler(
             ctx.clone(),
-            accumulated_tokens.clone(),
             commit_high_water_level
         )).await?
     };
 
     let app = Router::new()
-        .route("/completions", get(completions))
-        .route("/completions/confirm", post(completions_confirm))
-        .route("/completions/seq/:pk", get(current_seq))
+        .route("/v1/completions", get(completions))
+        .route("/v1/completions/confirm", post(completions_confirm))
+        .route("/v1/completions/seq/:pk", get(current_seq))
         .with_state(ctx.clone());
 
     let listener = tokio::net::TcpListener::bind(bind_addr).await?;

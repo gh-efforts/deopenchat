@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 pub const SIGNATURE_SIZE: usize = 64;
@@ -69,7 +68,7 @@ pub struct Claim {
 
 impl From<Claim> for [u8; CLAIM_SIZE] {
     fn from(claim: Claim) -> Self {
-        let mut out: [u8; 48] = [0u8; 48];
+        let mut out: [u8; CLAIM_SIZE] = [0u8; CLAIM_SIZE];
         let (pk, buff) = out.split_at_mut(PUBLIC_KEY_SIZE);
         pk.copy_from_slice(&claim.pk);
 
