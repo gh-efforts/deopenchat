@@ -59,6 +59,7 @@ pub struct Input {
     pub rounds: HashMap<PublicKey, Vec<Round>>
 }
 
+#[derive(Debug)]
 pub struct Claim {
     pub pk: PublicKey,
     pub start_seq: u32,

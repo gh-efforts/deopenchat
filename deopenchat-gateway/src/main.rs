@@ -290,8 +290,8 @@ async fn commit_handler<T, P> (
             .await?;
 
         info!("claim TX: {}", tx);
-
         ctx.md_cache.commit(&commit_claims).await?;
+        info!("commit: {:?}", commit_claims);
 
         let total_token_consumed = commit_claims.into_iter()
             .map(|c| c.tokens_consumed)
