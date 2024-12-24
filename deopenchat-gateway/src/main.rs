@@ -178,11 +178,14 @@ async fn current_seq<T, P>(
                     .call()
                     .await?._0;
 
-                PeerStatus {
+                let status = PeerStatus {
                     seq: status.seq,
                     commit_seq: status.seq,
                     state: RoundState::Completed
-                }
+                };
+
+                ctx.md_cache.update_from_chain(pk, status.clone()).await?;
+                status
             }
         };
 

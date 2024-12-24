@@ -42,6 +42,20 @@ impl MetadataCache {
         }
     }
 
+    pub async fn update_from_chain(&self, key: PublicKey, status: PeerStatus) -> Result<()> {
+        let key_str = hex::encode(&key);
+        let lock= {
+            let mut lg = self.locks.lock().unwrap();
+            lg.entry(key).or_insert_with(|| Arc::new(tokio::sync::RwLock::new(()))).clone()
+        };
+
+        let _lg = lock.write().await;
+
+        let buf = serde_json::to_vec(&status)?;
+        cacache::write(&self.round_status_dir, key_str, &buf).await?;
+        Ok(())
+    }
+
     pub async fn req(&self, req: &CompletionsReq<async_openai::types::CreateCompletionRequest>) -> Result<()> {
         let key = req.pk;
         let key_str = hex::encode(&key);
