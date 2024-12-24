@@ -15,7 +15,7 @@ use clap::{Parser, Subcommand};
 use common::{CompletionsReq, CompletionsResp, Confirm, ConfirmMsg, ConfirmReq, Request, RequestMsg};
 use ed25519_dalek::{SecretKey, Signer, SigningKey};
 use futures_util::TryFutureExt;
-use log::{info, LevelFilter};
+use log::{error, info, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
@@ -67,7 +67,14 @@ async fn completions_handler(
             .send()
             .await?;
 
-        let resp: CompletionsResp<async_openai::types::CreateCompletionResponse> = resp.json().await?;
+        let resp: CompletionsResp<async_openai::types::CreateCompletionResponse> = match resp.json().await {
+            Err(e) => {
+                error!("completions error: {:?}", e);
+                return Err(anyhow!("completions failed"));
+            }
+            Ok(resp) => resp,
+        };
+
         let usage = resp.raw_response.usage.clone().ok_or_else(|| anyhow!("missing usage"))?;
         // todo verify number of tokens
 
