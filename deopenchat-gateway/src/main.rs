@@ -292,6 +292,12 @@ async fn commit_handler<T, P> (
         info!("claim TX: {}", tx);
 
         ctx.md_cache.commit(&commit_claims).await?;
+
+        let total_token_consumed = commit_claims.into_iter()
+            .map(|c| c.tokens_consumed)
+            .sum();
+
+        ctx.accumulated_tokens.fetch_sub(total_token_consumed, Ordering::Relaxed);
     }
 }
 
