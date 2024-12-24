@@ -67,9 +67,10 @@ async fn completions_handler(
             .send()
             .await?;
 
-        let resp: CompletionsResp<async_openai::types::CreateCompletionResponse> = match resp.json().await {
+        let resp_body = resp.bytes().await?;
+        let resp: CompletionsResp<async_openai::types::CreateCompletionResponse> = match serde_json::from_slice(&resp_body) {
             Err(e) => {
-                error!("completions error: {:?}", e);
+                error!("completions error: {:?}, body: {}", e, String::from_utf8_lossy(&resp_body));
                 return Err(anyhow!("completions failed"));
             }
             Ok(resp) => resp,
