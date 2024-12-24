@@ -61,6 +61,10 @@ contract Deopenchat {
         return providerMapping[provider];
     }
 
+    function getImageId() view public returns(bytes32) {
+        return imageId;
+    }
+
     function getAllProviders() view public returns(Provider[] memory) {
         Provider[] memory ret = new Provider[](providers.length);
 

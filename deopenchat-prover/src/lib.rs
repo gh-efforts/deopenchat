@@ -2,6 +2,7 @@ use anyhow::Result;
 use deopenchat_zkcircuit::{GUEST_CODE_FOR_ZK_PROOF_ELF, GUEST_CODE_FOR_ZK_PROOF_ID};
 use common::Input;
 use risc0_zkvm::{default_prover, ExecutorEnv, ProveInfo, ProverOpts};
+use risc0_zkvm::sha::Digest;
 
 pub fn prove(input: Input) -> Result<ProveInfo> {
     let env = ExecutorEnv::builder()
@@ -16,6 +17,10 @@ pub fn prove(input: Input) -> Result<ProveInfo> {
 
     prove_info.receipt.verify(GUEST_CODE_FOR_ZK_PROOF_ID)?;
     Ok(prove_info)
+}
+
+pub fn image_id() -> Digest {
+    Digest::from(GUEST_CODE_FOR_ZK_PROOF_ID)
 }
 
 #[cfg(test)]

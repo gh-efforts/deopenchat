@@ -211,6 +211,13 @@ async fn commit_handler<T, P> (
         P: Provider<T> + 'static
 {
     let deopenchat = Deopenchat::new(ctx.deopenchat_contact_address, &ctx.alloy_provider);
+    let image_id = deopenchat.getImageId()
+        .call()
+        .await?
+        ._0
+        .0;
+
+    ensure!(deopenchat_prover::image_id().as_bytes() == image_id, "image id mismatch, expected: {}, got: {}", deopenchat_prover::image_id(), hex::encode(image_id));
 
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
