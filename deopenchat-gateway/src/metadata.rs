@@ -194,7 +194,10 @@ impl MetadataCache {
             let mut rounds = Vec::new();
 
             for seq in s.commit_seq + 1..=s.seq {
-                let buf = cacache::read(&self.history_dir, &format!("{}-{}", key_str, seq)).await?;
+                let buf = match cacache::read(&self.history_dir, &format!("{}-{}", key_str, seq)).await {
+                    Ok(buf) => buf,
+                    Err(_) => break,
+                };
                 let rd: RoundData = serde_json::from_slice(&buf)?;
                 rounds.push(rd);
             }
