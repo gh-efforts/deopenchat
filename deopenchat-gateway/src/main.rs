@@ -210,6 +210,9 @@ async fn commit_handler<T, P> (
         T: Send + Sync + Transport + Clone,
         P: Provider<T> + 'static
 {
+    let prover_image_id = deopenchat_prover::image_id();
+    info!("prover image id: {}", prover_image_id);
+
     let deopenchat = Deopenchat::new(ctx.deopenchat_contact_address, &ctx.alloy_provider);
     let contact_image_id = deopenchat.getImageId()
         .call()
@@ -217,9 +220,6 @@ async fn commit_handler<T, P> (
         ._0
         .0;
 
-    let prover_image_id = deopenchat_prover::image_id();
-
-    info!("prover image id: {}", prover_image_id);
     ensure!(prover_image_id.as_bytes() == contact_image_id, "contact image id mismatch, expected: {}, got: {}", prover_image_id, hex::encode(contact_image_id));
 
     loop {
