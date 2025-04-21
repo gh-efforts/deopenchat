@@ -117,7 +117,7 @@ Bridge is used to establish a connection with a provider and provide OpenAI inte
 3. start bridge
 
    ```shell
-   ./deopenchat-bridge --chain-endpoint <CHAIN_ENDPOINT> --deopenchat-contact-address <DEOPENCHAT_CONTACT_ADDRESS> <COMMAND>
+   ./deopenchat-bridge --chain-endpoint <CHAIN_ENDPOINT> --deopenchat-contact-address <DEOPENCHAT_CONTACT_ADDRESS> daemon --bind-addr <BIND_ADDR> --provider <PROVIDER> --client-sk <CLIENT_SK>
    ```
 
    
